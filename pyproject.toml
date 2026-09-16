@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "depths-of-yendor"
+version = "1.0.0"
+description = "A terminal roguelike: descend, loot, fight, and escape with the Amulet of Yendor."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+yendor = "roguelike.main:main"
+
+[tool.setuptools]
+packages = ["roguelike", "roguelike.components"]
