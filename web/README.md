@@ -33,16 +33,46 @@ distant stone toward black.
   don't blink and never look away once they've spotted you, and an
   idle motion built from slow uneasy sway plus rare involuntary twitches
   rather than a clean bob.
-- Deliberately unsettling presentation: a small, unstable pool of torchlight
-  with occasional "gutter" flicker-outs, persistent blood decals where
-  things have died or bled, a reddening screen pulse and thumping heartbeat
-  under ~30% health, brief glimpses of eyes in the dark that aren't
-  actually anything, and a bed of dissonant WebAudio drone/noise instead of
-  clean tones -- with a mute button, because it is a lot.
+- **A real combat system, not bump-to-attack.** A stamina bar gates every
+  action: light attacks are cheap, heavy attacks (Shift+move) cost more
+  stamina, hit harder, and can cleave with an axe; blocking (`F`) consumes
+  a one-shot guard that absorbs the next hit; dodging (`V`) spends stamina
+  to duck a blow entirely; attacking a monster that hasn't noticed you yet
+  is a backstab with a large damage multiplier and near-guaranteed critical
+  hit. Weapons (dagger/sword/axe) trade stamina cost, crit chance, and
+  backstab multiplier against each other instead of being flat upgrades.
+- **The Stalker**: a single, near-unkillable hunter that enters the dungeon
+  around depth 3 and persists across floors. It isn't part of the regular
+  monster spawn table -- it patrols using the same pathfinding the other
+  monsters use, but its detection is probabilistic and driven by ambient
+  light and whether you're moving: standing still in a dark tile lets you
+  hide from it even in its line of sight. Once it notices you it commits to
+  a chase using last-known-position pathing rather than perfect tracking,
+  the same trick that makes Alien: Isolation's Xenomorph frightening --
+  it's dangerous because it's *persistent*, not because it's strong, and
+  fighting it barely scratches it.
+- **A sanity meter** that drains in darkness and near the Stalker and
+  recovers in light. Low sanity is not cosmetic: it raises the frequency of
+  "phantom" glimpses (including full hallucinated monsters that vanish on a
+  second look), warps the screen with a distortion filter, and eventually
+  starts costing you real HP over time.
+- Deliberately unsettling presentation, built on researched horror-design
+  principles rather than gore alone: a small, unstable pool of torchlight
+  with occasional "gutter" flicker-outs, persistent blood decals, a
+  reddening screen pulse and thumping heartbeat under ~30% health, brief
+  glimpses of things in the dark that aren't actually anything (the classic
+  fear-of-the-unknown trick -- most of what unsettles you here is never
+  actually on screen), a deep sub-bass ambient drone that tightens as
+  danger closes in, and rare, genuine jump scares (near-silence broken by a
+  sudden filtered noise burst, screen flash, and camera shake) rather than
+  constant loud noise, because a startle only works against a quiet
+  baseline -- with a mute button, because it is a lot.
 - Potions, scrolls (including tap-to-target fireball), weapons and armor,
   leveling with a choice of growth on level-up.
-- Keyboard (arrows/WASD, `I` for pack, `space` to wait, `>`/`<` for stairs)
-  and an on-screen d-pad for touch devices; responsive down to phone width.
+- Keyboard (arrows/WASD, `I` for pack, `space` to wait, `F` to block, `V`
+  to dodge, Shift+move for a heavy attack, `>`/`<` for stairs) and an
+  on-screen d-pad plus action buttons for touch devices; responsive down to
+  phone width.
 - Save/continue via `localStorage`; permadeath clears it on death or
   leaving the dungeon.
 

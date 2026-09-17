@@ -128,7 +128,15 @@
     aspect-ratio: 16/10.2;
     width:100%;
   }
-  #view{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+  #view{ position:absolute; inset:0; width:100%; height:100%; display:block; transition: filter .8s ease; }
+  #view.unsteady{ animation: sanityWarp 5s ease-in-out infinite; }
+  @keyframes sanityWarp{
+    0%,100%{ filter:saturate(1) contrast(1) hue-rotate(0deg); }
+    30%{ filter:saturate(.7) contrast(1.15) hue-rotate(-6deg); }
+    55%{ filter:saturate(1.3) contrast(.95) hue-rotate(4deg); }
+    80%{ filter:saturate(.8) contrast(1.1) hue-rotate(-3deg); }
+  }
+  @media (prefers-reduced-motion: reduce){ #view.unsteady{ animation:none; filter:saturate(.85) contrast(1.05); } }
   .vignette{
     position:absolute; inset:0; pointer-events:none;
     background: radial-gradient(ellipse 70% 70% at 50% 48%, transparent 50%, rgba(0,0,0,.55) 100%);
@@ -139,6 +147,10 @@
     50%{ background: radial-gradient(ellipse 58% 58% at 50% 48%, transparent 24%, rgba(170,12,16,.72) 100%); }
   }
   @media (prefers-reduced-motion: reduce){ .vignette.danger{ animation:none; background: radial-gradient(ellipse 65% 65% at 50% 48%, transparent 35%, rgba(150,12,16,.6) 100%); } }
+  .scareFlash{ position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; mix-blend-mode:overlay; }
+  .scareFlash.show{ animation: scareFlash .6s cubic-bezier(.2,1,.3,1); }
+  @keyframes scareFlash{ 0%{opacity:0;} 5%{opacity:1;} 14%{opacity:.1;} 22%{opacity:.85;} 32%{opacity:0;} 46%{opacity:.4;} 100%{opacity:0;} }
+  @media (prefers-reduced-motion: reduce){ .scareFlash.show{ animation: none; opacity:.5; } }
   .banner{
     position:absolute; top:0; left:0; right:0; padding:8px 14px; text-align:center;
     font-family:var(--font-display); font-size:.82rem; letter-spacing:.05em; text-transform:uppercase;
@@ -170,6 +182,10 @@
   .bar-fill.hp.mid{ background: linear-gradient(90deg, #8a6a26, var(--hp-mid)); box-shadow: 0 0 10px rgba(209,162,60,.5); }
   .bar-fill.hp.low{ background: linear-gradient(90deg, #7c2a24, var(--hp-low)); box-shadow: 0 0 10px rgba(193,68,60,.6); }
   .bar-fill.xp{ background: linear-gradient(90deg, #5b4a9c, var(--magic)); box-shadow: 0 0 8px rgba(155,131,224,.5); }
+  .bar-fill.stamina{ background: linear-gradient(90deg, #8a6a26, var(--gold)); box-shadow: 0 0 8px rgba(212,175,55,.4); }
+  .bar-fill.sanity{ background: linear-gradient(90deg, #3d5a8a, #6f9bd6); box-shadow: 0 0 8px rgba(111,155,214,.4); transition: width .6s ease, background .6s ease; }
+  #sanityWrap.low .bar-fill.sanity{ background: linear-gradient(90deg, #6a2a4a, #b0396f); box-shadow: 0 0 10px rgba(176,57,111,.6); animation: sanityJitter 2.4s ease-in-out infinite; }
+  @keyframes sanityJitter{ 0%,100%{ opacity:1; } 45%{ opacity:.75; } 50%{ opacity:1; } 88%{ opacity:.85; } }
 
   .stat-row{ display:flex; gap:10px; font-size:.82rem; color:var(--parchment-dim); }
   .stat-row b{ color:var(--parchment); }
@@ -216,6 +232,7 @@
     font-family:var(--font-display); letter-spacing:.05em; text-transform:uppercase;
   }
   .action-col button:active{ border-color:var(--gold); color:var(--gold-bright); }
+  .action-col button.equipped{ border-color:var(--gold); color:var(--gold-bright); box-shadow: 0 0 8px rgba(212,175,55,.4) inset; }
   @media (hover:hover) and (pointer:fine){ .touch-controls{ display:none; } }
 
   .hint{ font-size:.76rem; color:var(--parchment-dim); text-align:center; }
@@ -317,6 +334,7 @@
       <div class="viewport" id="viewportWrap">
         <canvas id="view"></canvas>
         <div class="vignette" id="vignette"></div>
+        <div class="scareFlash" id="scareFlash"></div>
         <div class="banner" id="targetBanner" hidden>Choose a target &mdash; tap the dungeon, or Esc to cancel</div>
         <div class="prompt" id="stairPrompt" hidden></div>
       </div>
@@ -331,6 +349,14 @@
         <div class="bar">
           <div class="bar-label"><span>Vitality</span><b id="hpText">30/30</b></div>
           <div class="bar-track"><div class="bar-fill hp" id="hpFill" style="width:100%"></div></div>
+        </div>
+        <div class="bar">
+          <div class="bar-label"><span>Stamina</span></div>
+          <div class="bar-track"><div class="bar-fill stamina" id="staminaFill" style="width:100%"></div></div>
+        </div>
+        <div class="bar" id="sanityWrap">
+          <div class="bar-label"><span>Sanity</span></div>
+          <div class="bar-track"><div class="bar-fill sanity" id="sanityFill" style="width:100%"></div></div>
         </div>
         <div class="bar">
           <div class="bar-label"><span>Experience</span><b id="xpText">0/350</b></div>
@@ -359,9 +385,12 @@
       <div class="action-col">
         <button id="btnTouchInv">Pack</button>
         <button id="btnTouchStairs">Stairs</button>
+        <button id="btnTouchBlock">Block</button>
+        <button id="btnTouchDodge">Dodge</button>
+        <button id="btnTouchHeavy">Heavy: Off</button>
       </div>
     </div>
-    <p class="hint">Arrows/WASD move &amp; attack &middot; <kbd>Space</kbd> wait &middot; <kbd>I</kbd> pack &middot; <kbd>&gt;</kbd>/<kbd>&lt;</kbd> stairs &middot; <kbd>Esc</kbd> cancel</p>
+    <p class="hint">Arrows/WASD move &amp; attack &middot; <kbd>Shift</kbd>+move heavy attack &middot; <kbd>F</kbd> block &middot; <kbd>V</kbd> dodge &middot; <kbd>Space</kbd> wait &middot; <kbd>I</kbd> pack &middot; <kbd>&gt;</kbd>/<kbd>&lt;</kbd> stairs &middot; <kbd>Esc</kbd> cancel</p>
   </section>
 
   <section id="endScreen" hidden>
@@ -501,6 +530,7 @@ const S = { // whole mutable game state, kept flat & JSON-serialisable
   log:[],
   targeting:null, // {item}
   levelUpPending:false,
+  stalker:null, stalkerIntroduced:false,
 };
 
 let particles = [];
@@ -585,6 +615,13 @@ const sfx = {
   heartbeat: ()=> { beep(54,0.1,'sine',0.11); setTimeout(()=>beep(48,0.13,'sine',0.1),150); },
   whisper: ()=> noiseBurst({duration:0.8+Math.random()*0.6,filterType:'bandpass',freq:350+Math.random()*200,freqEnd:900+Math.random()*400,Q:2.4,gainPeak:0.035}),
   growl: ()=> { beep(60,0.5,'sawtooth',0.06,40); noiseBurst({duration:0.5,filterType:'lowpass',freq:260,Q:0.8,gainPeak:0.06}); },
+  dodge: ()=> noiseBurst({duration:0.12,filterType:'highpass',freq:1800,Q:0.9,gainPeak:0.06}),
+  block: ()=> { beep(220,0.08,'square',0.08,140); noiseBurst({duration:0.09,filterType:'bandpass',freq:1000,Q:2,gainPeak:0.08}); },
+  crit: ()=> { beep(90,0.16,'square',0.13,40); noiseBurst({duration:0.18,filterType:'bandpass',freq:2000,freqEnd:300,Q:0.8,gainPeak:0.18}); },
+  backstab: ()=> { noiseBurst({duration:0.22,filterType:'bandpass',freq:2400,freqEnd:200,Q:1,gainPeak:0.2}); beep(60,0.3,'sawtooth',0.12,30); },
+  noStamina: ()=> beep(180,0.1,'triangle',0.05,120),
+  stalkerStep: (vol)=> { noiseBurst({duration:0.16,filterType:'lowpass',freq:220,Q:0.7,gainPeak:0.05+vol*0.22}); },
+  stalkerBreath: (vol)=> noiseBurst({duration:0.9,filterType:'bandpass',freq:180,freqEnd:260,Q:3,gainPeak:0.02+vol*0.12}),
 };
 
 /* A low, unsteady drone that runs under the whole descent. Two detuned
@@ -593,29 +630,79 @@ const sfx = {
 let ambience = null;
 function startAmbience(){
   const ctx = audioCtx(); if(!ctx || ambience || muted) return;
-  const g = ctx.createGain(); g.gain.value = 0.0001; g.connect(masterGain);
-  const o1 = ctx.createOscillator(); o1.type='sawtooth'; o1.frequency.value=47;
-  const o2 = ctx.createOscillator(); o2.type='sawtooth'; o2.frequency.value=47.8;
-  const filt = ctx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=160; filt.Q.value=0.6;
-  const lfo = ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=0.045;
-  const lfoGain = ctx.createGain(); lfoGain.gain.value=55;
+  const g = ctx.createGain(); g.gain.value = 0.0001;
+  const tension = ctx.createGain(); tension.gain.value = 1;
+  g.connect(tension); tension.connect(masterGain);
+  // Two close-detuned low saws beat against each other; a near-infrasonic
+  // sine underneath adds a felt-more-than-heard rumble on anything with a
+  // subwoofer -- the low end filmmakers use to build anxiety before a scare.
+  const o1 = ctx.createOscillator(); o1.type='sawtooth'; o1.frequency.value=32;
+  const o2 = ctx.createOscillator(); o2.type='sawtooth'; o2.frequency.value=32.7;
+  const sub = ctx.createOscillator(); sub.type='sine'; sub.frequency.value=24;
+  const subGain = ctx.createGain(); subGain.gain.value=0.6;
+  const filt = ctx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=140; filt.Q.value=0.6;
+  const lfo = ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=0.04;
+  const lfoGain = ctx.createGain(); lfoGain.gain.value=45;
   lfo.connect(lfoGain); lfoGain.connect(filt.frequency);
-  o1.connect(filt); o2.connect(filt); filt.connect(g);
-  try{ o1.start(); o2.start(); lfo.start(); }catch(e){}
-  g.gain.linearRampToValueAtTime(0.03, ctx.currentTime+3.5);
-  ambience = {g,o1,o2,lfo};
+  o1.connect(filt); o2.connect(filt);
+  sub.connect(subGain); subGain.connect(filt);
+  filt.connect(g);
+  try{ o1.start(); o2.start(); sub.start(); lfo.start(); }catch(e){}
+  g.gain.linearRampToValueAtTime(0.028, ctx.currentTime+3.5);
+  ambience = {g,o1,o2,sub,lfo,tension};
 }
 function stopAmbience(){
   if (!ambience) return;
   const ctx = audioCtx();
-  const {g,o1,o2,lfo} = ambience;
+  const {g,o1,o2,sub,lfo} = ambience;
   try{
     g.gain.cancelScheduledValues(ctx.currentTime);
     g.gain.setValueAtTime(g.gain.value, ctx.currentTime);
     g.gain.linearRampToValueAtTime(0.0001, ctx.currentTime+1);
   }catch(e){}
-  setTimeout(()=>{ try{ o1.stop(); o2.stop(); lfo.stop(); }catch(e){} }, 1100);
+  setTimeout(()=>{ try{ o1.stop(); o2.stop(); sub.stop(); lfo.stop(); }catch(e){} }, 1100);
   ambience = null;
+}
+function stopAmbienceHard(){
+  if (!ambience) return;
+  const ctx = audioCtx();
+  const {g,o1,o2,sub,lfo} = ambience;
+  try{
+    g.gain.cancelScheduledValues(ctx.currentTime);
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+  }catch(e){}
+  try{ o1.stop(); o2.stop(); sub.stop(); lfo.stop(); }catch(e){}
+  ambience = null;
+}
+function updateAmbienceTension(closeness){
+  if (!ambience) return;
+  const ctx = audioCtx(); if (!ctx) return;
+  try{ ambience.tension.gain.setTargetAtTime(1+closeness*2.2, ctx.currentTime, 0.7); }catch(e){}
+}
+
+/* The jump scare: cut sound to nothing, a beat of true silence, then a
+   sudden loud, low, ugly noise arriving with no ramp-up. Startle works
+   because it reaches the body before the conscious mind can brace for it --
+   a gradual swell defeats the whole point. Used sparingly, only for The
+   Stalker actually landing a hit on you. */
+let lastScareAt = -99999;
+function triggerJumpScare(){
+  const now = performance.now();
+  if (now - lastScareAt < 4000) return; // never stack scares back to back
+  lastScareAt = now;
+  const wasAmbient = !!ambience;
+  stopAmbienceHard();
+  shake = Math.max(shake, 22);
+  if (el.scareFlash){
+    el.scareFlash.classList.remove('show');
+    void el.scareFlash.offsetWidth;
+    el.scareFlash.classList.add('show');
+  }
+  setTimeout(()=>{
+    noiseBurst({duration:0.4, filterType:'lowpass', freq:1000, freqEnd:100, Q:0.5, gainPeak:0.3});
+    beep(42,0.45,'sawtooth',0.2,22);
+  }, 120);
+  setTimeout(()=>{ if (wasAmbient && S.state==='playing' && !muted) startAmbience(); }, 1600);
 }
 
 /* ------------------------------ procedural gen ---------------------------- */
@@ -719,13 +806,19 @@ function computeFOV(tiles, ox, oy, radius){
 }
 
 /* --------------------------------- combat --------------------------------- */
-function hitChance(power,defense){ return clamp(0.75+0.03*(power-defense),0.05,0.95); }
-function rollAttack(power,defense){
-  if (rng() > hitChance(power,defense)) return { hit:false, damage:0 };
+function hitChance(power,defense,mod){ return clamp(0.75+0.03*(power-defense)+(mod||0),0.05,0.95); }
+function rollAttack(power,defense,mod){
+  if (rng() > hitChance(power,defense,mod)) return { hit:false, damage:0 };
   const base = Math.max(1, power - Math.floor(defense/2));
   const variance = Math.floor(rng()*(Math.max(1,Math.floor(power/3))+1));
   const mitigation = Math.floor(rng()*(Math.max(1,Math.floor(defense/3))+1));
   return { hit:true, damage: Math.max(1, base+variance-mitigation) };
+}
+function spendStamina(cost){
+  const p = S.player;
+  const full = p.stamina >= cost;
+  p.stamina = Math.max(0, p.stamina-cost);
+  return full;
 }
 
 /* --------------------------------- entities -------------------------------- */
@@ -736,10 +829,14 @@ function newPlayer(){
     kind:'player', x:0, y:0, facing:1,
     moveFrom:null, moveStart:0,
     hp:30, maxHp:30, power:6, defense:2, level:1, xp:0, gold:0,
-    weapon:'sword', armor:'leather', armorBonus:1, weaponBonus:2,
-    inventory: [ {id:'potion_heal', n:2}, {id:'scroll_lightning', n:1} ],
+    stamina:100, maxStamina:100,
+    sanity:100, maxSanity:100,
+    weapon:'dagger', armor:'leather', armorBonus:1, weaponBonus:1,
+    inventory: [ {id:'dagger', n:1}, {id:'potion_heal', n:2}, {id:'scroll_lightning', n:1} ],
     anim:{ attack:0, hit:0, dead:0 },
     status:{ poison:0, poisonDmg:0 },
+    guard:null, // {type:'block'|'dodge'} set for the upcoming enemy turn, consumed once
+    stillThisTurn:true, // false after moving/attacking -- footsteps and combat carry
   };
 }
 
@@ -766,6 +863,7 @@ function spawnMonster(id,x,y){
     hp:def.hp, maxHp:def.hp, power:def.pow, defense:def.def, xp:def.xp,
     anim:{ attack:0, hit:0, dead:-1 }, alive:true,
     status:{ poison:0, poisonDmg:0 },
+    alerted:false, // true once it has ever noticed/engaged the player -- a still-unalerted monster can be backstabbed
   };
 }
 
@@ -774,7 +872,9 @@ const ITEM_TABLE = {
   potion_vigor:   { name:'Potion of Vigor',   icon:'potion', color:'#e0a656', desc:'Permanently raises max vitality by 8.', kind:'potion' },
   scroll_lightning:{ name:'Scroll of Lightning', icon:'scroll', color:'#8fd0e0', desc:'Strikes the nearest visible foe for heavy damage.', kind:'scroll' },
   scroll_fireball:{ name:'Scroll of Fireball', icon:'scroll', color:'#e0762a', desc:'Choose a spot to burn everything nearby.', kind:'scroll', targeted:true },
-  sword:          { name:'Iron Sword', icon:'sword', color:'#cfd6de', desc:'+3 power when wielded.', kind:'weapon', bonus:3 },
+  dagger:         { name:'Rusted Dagger', icon:'sword', color:'#9fa6ad', desc:'+1 power. Cheap, quick attacks; hits far harder from hiding.', kind:'weapon', bonus:1, staminaMod:0.7, critBonus:0.12, backstabMult:1.6 },
+  sword:          { name:'Iron Sword', icon:'sword', color:'#cfd6de', desc:'+3 power when wielded. Balanced in every way.', kind:'weapon', bonus:3, staminaMod:1, critBonus:0.05, backstabMult:1.3 },
+  axe:            { name:'Notched Axe', icon:'sword', color:'#c9895a', desc:'+5 power. Slow and costly, but a heavy swing cleaves everything beside it.', kind:'weapon', bonus:5, staminaMod:1.4, critBonus:0.02, backstabMult:1.15, cleave:true },
   armor:          { name:'Chain Mail', icon:'armor', color:'#7f97b0', desc:'+3 defense when worn.', kind:'armor', bonus:3 },
   amulet:         { name:'Amulet of Yendor', icon:'amulet', color:'#f3d27a', desc:'The prize itself. Carry it to the surface.', kind:'quest' },
 };
@@ -837,16 +937,163 @@ function populateFloor(depth){
     }
     S.monsters.push(spawnMonster('dragon', gx, gy));
   }
+  maybeSpawnStalker(depth);
 }
+
+/* ------------------------------- The Stalker --------------------------------
+   A persistent, effectively unkillable hunter (after Alien: Isolation's
+   Xenomorph AI: real last-known-position pathing rather than omniscience,
+   used sparingly, and the correct response is to hide, not fight). Lives
+   outside S.monsters since its behaviour, rendering and rules are all
+   deliberately different from the rest of the bestiary. */
+function maybeSpawnStalker(depth){
+  S.stalker = null;
+  let shouldSpawn = false;
+  if (S.stalkerIntroduced) shouldSpawn = true;
+  else if (depth >= 3) shouldSpawn = rng() < (depth >= 7 ? 1 : clamp((depth-2)*0.22, 0, 0.75));
+  if (!shouldSpawn) return;
+
+  const startCenter = roomCenter(S.rooms[0]);
+  let best = S.rooms[S.rooms.length-1], bestDist = -1;
+  for(const room of S.rooms){
+    const c = roomCenter(room);
+    const d = Math.hypot(c[0]-startCenter[0], c[1]-startCenter[1]);
+    if (d > bestDist){ bestDist = d; best = room; }
+  }
+  let x, y;
+  for(let i=0;i<20;i++){
+    x = best.x+1+Math.floor(rng()*(best.w-2));
+    y = best.y+1+Math.floor(rng()*(best.h-2));
+    if (!occupied(x,y)) break;
+  }
+
+  const firstTime = !S.stalkerIntroduced;
+  S.stalkerIntroduced = true;
+  S.stalker = {
+    kind:'stalker', x, y, facing:1,
+    moveFrom:null, moveStart:0,
+    alive:true, anim:{ attack:0, hit:0, dead:-1 },
+    state:'patrol', lastSeen:null, searchTimer:0,
+    patrolTarget:null, patrolKey:null, patrolDMap:null,
+    stepTimer:0, breathTimer:0,
+  };
+  if (firstTime) log('Something down here has just noticed you arrive. You cannot see it yet. You will.', 'crit');
+}
+
+function stalkerDetectionChance(){
+  const st = S.stalker, p = S.player;
+  if (!hasLOS(S.tiles, st.x, st.y, p.x, p.y)) return 0;
+  const dist = Math.hypot(st.x-p.x, st.y-p.y);
+  const hiding = lightIntensity(p.x,p.y) < 0.32 && p.stillThisTurn;
+  const radius = hiding ? 3.4 : 9.5;
+  if (dist > radius) return 0;
+  let base = hiding ? 0.1 : 0.78;
+  base *= clamp(1 - dist/radius, 0.12, 1);
+  return clamp(base, 0, 0.95);
+}
+function stalkerPickPatrolTarget(){
+  const st = S.stalker;
+  const room = choice(rng, S.rooms);
+  let x = room.x+1+Math.floor(rng()*(room.w-2));
+  let y = room.y+1+Math.floor(rng()*(room.h-2));
+  if (S.tiles[y][x].blocked){ [x,y] = roomCenter(room); }
+  st.patrolTarget = {x,y};
+  st.patrolDMap = computeDistanceMap(S.tiles, x, y);
+}
+function updateStalkerAudio(dist, state){
+  const st = S.stalker;
+  if (state==='patrol'){ updateAmbienceTension(0); return; }
+  const closeness = clamp(1-dist/12, 0, 1);
+  updateAmbienceTension(closeness);
+  st.stepTimer--;
+  if (st.stepTimer<=0){ sfx.stalkerStep(closeness); st.stepTimer = Math.max(1, Math.round(4-closeness*3)); }
+  if (dist<8 && rng() < 0.1+closeness*0.25) sfx.stalkerBreath(closeness);
+}
+function stalkerAct(playerDMap){
+  const st = S.stalker;
+  const detected = rng() < stalkerDetectionChance();
+  if (detected){
+    if (st.state!=='chasing'){
+      sfx.growl();
+      log(st.state==='patrol' ? 'Something stops moving in the dark. Then it starts moving toward you.' : 'It found you again.', 'crit');
+    }
+    st.state = 'chasing'; st.lastSeen = {x:S.player.x,y:S.player.y}; st.searchTimer = 0;
+  } else if (st.state==='chasing'){
+    st.state = 'hunting'; st.searchTimer = 7+Math.floor(rng()*5);
+    log('You lose sight of it. That is so much worse than seeing it.', 'warn');
+  }
+
+  const dist = Math.max(Math.abs(st.x-S.player.x), Math.abs(st.y-S.player.y));
+  if (dist<=1){ stalkerAttack(); return; }
+
+  let step = null;
+  if (st.state==='chasing'){
+    step = stepToward(playerDMap, st.x, st.y);
+  } else if (st.state==='hunting'){
+    st.searchTimer--;
+    if (!st.lastSeen || st.searchTimer<=0 || (st.x===st.lastSeen.x && st.y===st.lastSeen.y)){
+      st.state='patrol'; stalkerPickPatrolTarget(); step = stepToward(st.patrolDMap, st.x, st.y);
+    } else {
+      const hdmap = computeDistanceMap(S.tiles, st.lastSeen.x, st.lastSeen.y);
+      step = stepToward(hdmap, st.x, st.y);
+    }
+  } else {
+    if (!st.patrolTarget || rng()<0.04 || (st.x===st.patrolTarget.x && st.y===st.patrolTarget.y)) stalkerPickPatrolTarget();
+    step = stepToward(st.patrolDMap, st.x, st.y);
+  }
+
+  if (step){
+    const nx = st.x+step[0], ny = st.y+step[1];
+    if (!occupied(nx,ny)){ st.facing = step[0]>=0?1:-1; beginMove(st, nx, ny); }
+  }
+  updateStalkerAudio(dist, st.state);
+}
+function stalkerAttack(){
+  const st = S.stalker, p = S.player;
+  st.facing = (p.x>=st.x)?1:-1;
+  st.anim.attack = 1;
+  const power = 20 + S.depth*1.4;
+  const r = rollAttack(power, p.defense+p.armorBonus);
+  if (!r.hit){ log('It lunges. You are not there when its hand closes.', 'warn'); return; }
+  triggerJumpScare();
+  const dmg = applyPlayerGuard(r.damage);
+  if (dmg<0){ log('You wrench free of its grasp at the very last instant.', 'good'); return; }
+  p.hp -= dmg;
+  p.sanity = clamp(p.sanity-18,0,p.maxSanity);
+  shake = Math.max(shake, 16);
+  spawnFloater(p.x,p.y,`-${dmg}`,'#ff2a2a');
+  spawnHitParticles(p.x,p.y,'#3a0a10', 26);
+  spawnBlood(p.x,p.y,0.5+rng()*0.3);
+  log(`It has you. ${dmg} damage -- and you can feel exactly how much worse this could have been.`, 'crit');
+}
+function playerAttackStalker(){
+  const p = S.player;
+  spendStamina(12 * ((ITEM_TABLE[p.weapon]||{}).staminaMod || 1));
+  p.anim.attack = 1;
+  shake = Math.max(shake, 3);
+  spawnHitParticles(S.stalker.x, S.stalker.y, '#1a0e14', 8);
+  sfx.miss();
+  log(choice(rng, [
+    'Your blade passes through it wrong, like striking smoke stretched over stone.',
+    'You hit it. It does not seem to have noticed.',
+    'Steel meets something that is not quite flesh. It does not even slow down.',
+  ]), 'warn');
+  S.stalker.state = 'chasing';
+  S.stalker.lastSeen = { x:p.x, y:p.y };
+  S.stalker.searchTimer = 0;
+  p.sanity = clamp(p.sanity-6,0,p.maxSanity);
+}
+
 function placeRandomItem(x,y,depth){
   const roll = rng();
   let id;
-  if (roll<0.3) id='potion_heal';
-  else if (roll<0.42) id='potion_vigor';
-  else if (roll<0.58) id='scroll_lightning';
-  else if (roll<0.7) id='scroll_fireball';
-  else if (roll<0.82) id='sword';
-  else if (roll<0.94) id='armor';
+  if (roll<0.28) id='potion_heal';
+  else if (roll<0.38) id='potion_vigor';
+  else if (roll<0.52) id='scroll_lightning';
+  else if (roll<0.64) id='scroll_fireball';
+  else if (roll<0.76) id='sword';
+  else if (roll<0.86) id='armor';
+  else if (roll<0.94) id='axe';
   else { S.items.push({ id:'gold', x, y, amount: (2+Math.floor(rng()*8))*depth }); return; }
   S.items.push({ id, x, y });
 }
@@ -854,6 +1101,7 @@ function occupied(x,y){
   if (S.player.x===x && S.player.y===y) return true;
   if (S.monsters.some(m=>m.alive && m.x===x && m.y===y)) return true;
   if (S.items.some(it=>it.x===x && it.y===y)) return true;
+  if (S.stalker && S.stalker.x===x && S.stalker.y===y) return true;
   return false;
 }
 
@@ -940,39 +1188,116 @@ function log(text, cls='info'){
 /* ------------------------------------ turn engine ------------------------------------ */
 function playerAlive(){ return S.player.hp>0; }
 
-function tryMove(dx,dy){
+function tryMove(dx,dy,heavy){
   if (S.state!=='playing' || inputLocked) return;
   const p = S.player;
   const nx = p.x+dx, ny = p.y+dy;
   if (nx<0||ny<0||nx>=MAP_W||ny>=MAP_H) return;
   if (S.tiles[ny][nx].blocked){ shake = Math.max(shake,2); return; }
-  const target = S.monsters.find(m=>m.alive && m.x===nx && m.y===ny);
-  if (target){
-    playerAttack(target);
+  if (S.stalker && S.stalker.alive && S.stalker.x===nx && S.stalker.y===ny){
+    p.facing = dx>=0?1:-1;
+    p.stillThisTurn = false;
+    playerAttackStalker();
     endPlayerTurn();
     return;
   }
+  const target = S.monsters.find(m=>m.alive && m.x===nx && m.y===ny);
+  if (target){
+    p.facing = dx>=0?1:-1;
+    p.stillThisTurn = false;
+    playerAttack(target, heavy);
+    endPlayerTurn();
+    return;
+  }
+  if (heavy) return; // a heavy swing needs something in front of you to hit
   p.facing = dx>=0?1:-1;
+  p.stillThisTurn = false;
   beginMove(p, nx, ny);
   triggerTrap(p, nx, ny);
   endPlayerTurn();
 }
-function wait(){ if (S.state!=='playing' || inputLocked) return; endPlayerTurn(); }
+function wait(){ if (S.state!=='playing' || inputLocked) return; S.player.stillThisTurn = true; endPlayerTurn(); }
 
-function playerAttack(target){
+function playerBlock(){
+  if (S.state!=='playing' || inputLocked) return;
+  const p = S.player;
+  p.stillThisTurn = true;
+  const exhausted = !spendStamina(16);
+  p.guard = { type:'block' };
+  sfx.block();
+  log(exhausted ? 'You raise your guard, arms already shaking with fatigue.' : 'You brace for whatever comes next.', 'info');
+  endPlayerTurn();
+}
+function playerDodge(){
+  if (S.state!=='playing' || inputLocked) return;
+  const p = S.player;
+  p.stillThisTurn = true;
+  const exhausted = !spendStamina(12);
+  const chance = clamp(0.55 + p.level*0.015 - (exhausted?0.2:0), 0.25, 0.85);
+  p.guard = { type:'dodge', chance };
+  log('You coil, ready to move the instant something comes for you.', 'info');
+  endPlayerTurn();
+}
+
+function playerAttack(target, heavy){
+  const p = S.player;
   const def = monsterDef(target.id);
-  const power = S.player.power + S.player.weaponBonus;
-  const r = rollAttack(power, target.defense);
-  S.player.anim.attack = 1; target.anim.hit = 1;
-  shake = Math.max(shake, r.hit?4:1);
-  if (!r.hit){ log(`You swing at the ${def.name} and miss.`,'info'); sfx.miss(); return; }
-  sfx.hit();
-  target.hp -= r.damage;
-  spawnFloater(target.x, target.y, `-${r.damage}`, '#e6c96a');
-  spawnHitParticles(target.x, target.y, def.color);
-  if (!def.ghost) spawnBlood(target.x, target.y, 0.16+rng()*0.12);
-  log(pickHitLine(def.name), 'bad');
+  const wdef = ITEM_TABLE[p.weapon] || {};
+  const staminaMod = wdef.staminaMod || 1;
+  const cost = (heavy ? 30 : 12) * staminaMod;
+  const exhausted = !spendStamina(cost);
+  if (exhausted) sfx.noStamina();
+
+  const backstab = !target.alerted;
+  let power = p.power + p.weaponBonus;
+  if (heavy) power = Math.round(power*1.6);
+  if (exhausted) power = Math.round(power*0.6);
+
+  const r = rollAttack(power, target.defense, heavy ? -0.12 : 0);
+  p.anim.attack = 1;
+  if (!r.hit){
+    shake = Math.max(shake,1); sfx.miss();
+    log(heavy ? 'Your heavy swing goes wide, and the weight of it nearly pulls you off balance.' : `You swing at the ${def.name} and miss.`, 'info');
+    return;
+  }
+
+  let dmg = r.damage;
+  let crit = rng() < (0.07 + (wdef.critBonus||0) + (heavy?0.08:0));
+  if (backstab){ dmg = Math.round(dmg*(wdef.backstabMult||1.3)); crit = true; }
+  if (crit) dmg = Math.round(dmg*2.1);
+
+  target.anim.hit = 1;
+  shake = Math.max(shake, crit?7:4);
+  if (backstab) sfx.backstab(); else if (crit) sfx.crit(); else sfx.hit();
+
+  target.hp -= dmg;
+  spawnFloater(target.x, target.y, (crit?'CRIT ':'')+`-${dmg}`, crit?'#ff8a5a':'#e6c96a');
+  spawnHitParticles(target.x, target.y, def.color, crit?20:undefined);
+  if (!def.ghost) spawnBlood(target.x, target.y, (crit?0.3:0.16)+rng()*0.12);
+
+  if (backstab) log(`You strike from the shadows -- the ${def.name} never saw it coming. ${dmg} damage.`, 'crit');
+  else if (crit) log(`A vicious hit! The ${def.name} reels for ${dmg}.`, 'crit');
+  else log(pickHitLine(def.name), 'bad');
+
+  target.alerted = true;
   if (target.hp<=0){ killMonster(target); }
+
+  if (wdef.cleave && heavy){
+    for(const [dx,dy] of DIRS8){
+      const ox=target.x+dx, oy=target.y+dy;
+      const other = S.monsters.find(o=>o!==target && o.alive && o.x===ox && o.y===oy);
+      if (!other) continue;
+      const r2 = rollAttack(Math.round(power*0.65), other.defense);
+      if (!r2.hit) continue;
+      other.hp -= r2.damage; other.alerted = true; other.anim.hit = 1;
+      const odef = monsterDef(other.id);
+      spawnFloater(other.x,other.y,`-${r2.damage}`,'#e6c96a');
+      spawnHitParticles(other.x,other.y,odef.color);
+      if (!odef.ghost) spawnBlood(other.x,other.y,0.12);
+      log(`Your cleaving swing catches the ${odef.name} too, for ${r2.damage}.`,'bad');
+      if (other.hp<=0) killMonster(other);
+    }
+  }
 }
 function killMonster(target){
   target.alive=false; target.anim.dead=0;
@@ -1010,11 +1335,32 @@ function triggerTrap(entity, x, y){
 
 function endPlayerTurn(){
   S.turn++;
+  S.player.stamina = clamp(S.player.stamina + 7, 0, S.player.maxStamina);
   S.visible = computeFOV(S.tiles, S.player.x, S.player.y, FOV_RADIUS);
   markExplored();
+  tickSanity();
   if (!playerAlive()){ onPlayerDeath(); return; }
   if (S.levelUpPending){ openLevelUp(); return; }
   runMonsterTurns();
+}
+
+/* Sanity drains in the dark and in the presence of the thing hunting you;
+   it recovers slowly somewhere lit and quiet. Very low sanity is not just
+   flavor -- it costs real vitality and starts showing you things. */
+function tickSanity(){
+  const p = S.player;
+  const light = lightIntensity(p.x, p.y);
+  let delta = light < 0.28 ? -0.6 : 0.45;
+  if (S.stalker && S.stalker.alive){
+    if (S.stalker.state==='chasing') delta -= 3.2;
+    else if (S.stalker.state==='hunting') delta -= 1.1;
+  }
+  p.sanity = clamp(p.sanity + delta, 0, p.maxSanity);
+  if (p.sanity <= 12 && S.turn % 6 === 0){
+    p.hp -= 1;
+    log('Your mind cannot carry much more of this. It is starting to cost you.', 'warn');
+    spawnFloater(p.x,p.y,'-1','#b0396f');
+  }
 }
 
 function runMonsterTurns(){
@@ -1026,6 +1372,10 @@ function runMonsterTurns(){
     if (!playerAlive()){ onPlayerDeath(); return; }
   }
   const dmap = computeDistanceMap(S.tiles, S.player.x, S.player.y);
+  if (S.stalker && S.stalker.alive){
+    stalkerAct(dmap);
+    if (!playerAlive()){ S.player.guard=null; onPlayerDeath(); return; }
+  }
   for(const m of S.monsters){
     if (!m.alive) continue;
     if (m.status.poison>0){
@@ -1036,10 +1386,43 @@ function runMonsterTurns(){
     monsterAct(m, dmap);
     if (!playerAlive()) break;
   }
+  S.player.guard = null; // a guard stance only ever covers the monster-turn right after it
   if (!playerAlive()){ onPlayerDeath(); return; }
   if (S.levelUpPending){ openLevelUp(); return; }
 }
 
+/* Consumes the player's block/dodge stance (if any) against one incoming
+   hit. Returns the adjusted damage, or -1 if the attack was fully evaded. */
+function applyPlayerGuard(dmg){
+  const g = S.player.guard;
+  if (!g) return dmg;
+  S.player.guard = null;
+  if (g.type==='block') return Math.max(0, Math.round(dmg*0.32));
+  if (g.type==='dodge'){
+    if (rng() < g.chance){ sfx.dodge(); return -1; }
+    return dmg;
+  }
+  return dmg;
+}
+function landPlayerHit(m, def, rawDamage){
+  const dmg = applyPlayerGuard(rawDamage);
+  m.anim.attack=1;
+  if (dmg<0){
+    log('You throw yourself clear -- it finds nothing but air.', 'good');
+    return;
+  }
+  S.player.hp -= dmg; sfx.hurt(); shake=Math.max(shake,5);
+  S.player.sanity = clamp(S.player.sanity-2, 0, S.player.maxSanity);
+  spawnFloater(S.player.x,S.player.y,`-${dmg}`,'#e6746a');
+  spawnHitParticles(S.player.x,S.player.y,def.color);
+  spawnBlood(S.player.x,S.player.y,0.14+rng()*0.12);
+  log(dmg<rawDamage ? `You brace the blow from the ${def.name} down to ${dmg}.` : pickPlayerHitLine(def.name, dmg),'bad');
+  if (def.poison && rng()<0.45){
+    S.player.status.poison = Math.max(S.player.status.poison,3);
+    S.player.status.poisonDmg = Math.max(S.player.status.poisonDmg,2);
+    log('Venom burns beneath your skin.','warn');
+  }
+}
 function monsterAct(m, dmap){
   const def = monsterDef(m.id);
   const p = S.player;
@@ -1048,34 +1431,19 @@ function monsterAct(m, dmap){
   const dist = Math.max(Math.abs(m.x-p.x), Math.abs(m.y-p.y));
   if (def.kind==='ranged'){
     if (seesPlayer && dist<=6){
+      m.alerted = true;
       const r = rollAttack(m.power, p.defense+p.armorBonus);
-      m.anim.attack=1;
-      if (r.hit){
-        p.hp -= r.damage; sfx.hurt(); shake=Math.max(shake,5);
-        spawnFloater(p.x,p.y,`-${r.damage}`,'#e6746a');
-        spawnHitParticles(p.x,p.y,def.color);
-        spawnBlood(p.x,p.y,0.14+rng()*0.1);
-        log(pickPlayerHitLine(def.name, r.damage),'bad');
-      } else { log(`The ${def.name}'s attack goes wide.`,'info'); }
+      if (r.hit) landPlayerHit(m, def, r.damage);
+      else { m.anim.attack=1; log(`The ${def.name}'s attack goes wide.`,'info'); }
       return;
     }
   }
   if (!seesPlayer){ return; } // idle until spotted
+  m.alerted = true;
   if (dist<=1){
     const r = rollAttack(m.power, p.defense+p.armorBonus);
-    m.anim.attack=1;
-    if (r.hit){
-      p.hp -= r.damage; sfx.hurt(); shake=Math.max(shake,5);
-      spawnFloater(p.x,p.y,`-${r.damage}`,'#e6746a');
-      spawnHitParticles(p.x,p.y,def.color);
-      spawnBlood(p.x,p.y,0.16+rng()*0.12);
-      log(pickPlayerHitLine(def.name, r.damage),'bad');
-      if (def.poison && rng()<0.45){
-        p.status.poison = Math.max(p.status.poison,3);
-        p.status.poisonDmg = Math.max(p.status.poisonDmg,2);
-        log('Venom burns beneath your skin.','warn');
-      }
-    } else { log(`The ${def.name} lunges but misses.`,'info'); }
+    if (r.hit) landPlayerHit(m, def, r.damage);
+    else { m.anim.attack=1; log(`The ${def.name} lunges but misses.`,'info'); }
     return;
   }
   const step = stepToward(dmap, m.x, m.y);
@@ -1286,6 +1654,8 @@ function serialize(){
     player:S.player,
     monsters:S.monsters, items:S.items,
     log:S.log.slice(-40),
+    stalker: S.stalker ? { ...S.stalker, patrolDMap:null } : null,
+    stalkerIntroduced: S.stalkerIntroduced,
   };
 }
 function deserialize(d){
@@ -1296,9 +1666,14 @@ function deserialize(d){
   S.biome = biomeFor(S.depth);
   S.player=d.player; S.player.moveFrom=null; S.player.moveStart=0;
   S.player.status = S.player.status || { poison:0, poisonDmg:0 };
-  S.monsters=d.monsters.map(m=>({...m, moveFrom:null, moveStart:0, anim:{attack:0,hit:0,dead: m.alive?-1:0}}));
+  if (S.player.stamina===undefined){ S.player.stamina=100; S.player.maxStamina=100; }
+  if (S.player.sanity===undefined){ S.player.sanity=100; S.player.maxSanity=100; }
+  S.player.guard = null;
+  S.monsters=d.monsters.map(m=>({...m, moveFrom:null, moveStart:0, alerted: m.alerted||false, anim:{attack:0,hit:0,dead: m.alive?-1:0}}));
   S.items=d.items;
   S.log=d.log||[];
+  S.stalkerIntroduced = d.stalkerIntroduced||false;
+  S.stalker = d.stalker ? { ...d.stalker, moveFrom:null, moveStart:0, patrolTarget:null, patrolDMap:null, anim:{attack:0,hit:0,dead:-1} } : null;
   S.visible = computeFOV(S.tiles, S.player.x, S.player.y, FOV_RADIUS);
   markExplored();
   camX=S.player.x; camY=S.player.y;
@@ -1782,7 +2157,9 @@ function drawParticles(){
 let phantoms = [];
 function maybeSpawnPhantom(){
   if (reducedMotion || phantoms.length || S.state!=='playing') return;
-  if (rng() > 0.0018) return;
+  const sanityRatio = S.player.sanity / S.player.maxSanity;
+  const baseChance = lerp(0.0009, 0.0058, clamp(1-sanityRatio,0,1));
+  if (rng() > baseChance) return;
   const R = 8;
   const opts = [];
   for(let dy=-R;dy<=R;dy++){
@@ -1802,8 +2179,21 @@ function maybeSpawnPhantom(){
   }
   if (!opts.length) return;
   const spot = choice(rng, opts);
-  phantoms.push({ x:spot.x, y:spot.y, life:0, maxLife:0.2+rng()*0.25 });
-  if (rng()<0.5) sfx.whisper();
+  // At very low sanity, sometimes what you glimpse isn't just eyes -- it's
+  // a full, convincing figure that looks exactly like a real monster and
+  // is not one. Indistinguishable until it simply isn't there anymore.
+  if (sanityRatio < 0.35 && rng() < 0.4){
+    const def = choice(rng, MONSTER_TABLE.filter(m=>!m.boss));
+    phantoms.push({
+      x:spot.x, y:spot.y, life:0, maxLife:0.9+rng()*0.8,
+      monsterId:def.id, facing: rng()<0.5?1:-1,
+      anim:{attack:0,hit:0,dead:-1}, moveFrom:null,
+    });
+    if (rng()<0.7) sfx.growl();
+  } else {
+    phantoms.push({ x:spot.x, y:spot.y, life:0, maxLife:0.2+rng()*0.25 });
+    if (rng()<0.5) sfx.whisper();
+  }
 }
 function updatePhantoms(dt){
   for(let i=phantoms.length-1;i>=0;i--){
@@ -1817,6 +2207,14 @@ function drawPhantoms(){
     const t = ph.life/ph.maxLife;
     const alpha = Math.sin(clamp(t,0,1)*Math.PI);
     const [sx,sy] = worldToScreen(ph.x, ph.y);
+    if (ph.monsterId){
+      const def = monsterDef(ph.monsterId);
+      ctx.save();
+      ctx.globalAlpha = clamp(alpha,0,1);
+      drawCreature(sx, sy, def.size, def, performance.now(), ph, false);
+      ctx.restore();
+      continue;
+    }
     const cx = sx+tileSize/2, cy = sy+tileSize*0.4;
     ctx.save();
     ctx.globalAlpha = alpha*0.9;
@@ -1855,8 +2253,62 @@ function drawEntities(t){
   const p = S.player;
   const pr = renderPos(p, t);
   drawables.push({ y:pr.y+0.35, x:pr.x, draw:()=>{ const [sx,sy]=worldToScreen(pr.x,pr.y); drawCreature(sx,sy,0.82,{color:'#3f6e8a', tail:false, ears:'none'}, t, p, true); } });
+  if (S.stalker && S.stalker.alive && S.visible.has(S.stalker.x+','+S.stalker.y)){
+    const sr = renderPos(S.stalker, t);
+    drawables.push({ y:sr.y+0.4, x:sr.x, draw:()=>{ const [sx,sy]=worldToScreen(sr.x,sr.y); drawStalker(sx,sy,t); } });
+  }
   drawables.sort((a,b)=>a.y-b.y);
   for(const d of drawables) d.draw();
+}
+
+function drawStalker(sx, sy, t){
+  const st = S.stalker;
+  const cx = sx+tileSize/2, groundY = sy+tileSize*0.92;
+  const s = tileSize*1.32;
+  const jitter = twitchOffset(st, t)*2.4;
+  const tw = tweenT(st,t);
+  const walk = tw<1 ? Math.sin(tw*Math.PI)*s*0.04 : 0;
+  const facing = st.facing||1;
+
+  ctx.save();
+  ctx.translate(cx+jitter, groundY - s*0.62 - walk);
+  ctx.scale(facing,1);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath(); ctx.ellipse(0, s*0.6, s*0.24, s*0.08, 0,0,Math.PI*2); ctx.fill();
+
+  ctx.strokeStyle = '#0c0709'; ctx.lineWidth = s*0.045; ctx.lineCap = 'round';
+  const armSwing = Math.sin(t*0.003+jitter)*s*0.06;
+  for(const side of [-1,1]){
+    ctx.beginPath();
+    ctx.moveTo(side*s*0.12, -s*0.08);
+    ctx.quadraticCurveTo(side*s*0.32, s*0.2+armSwing, side*s*0.22, s*0.6);
+    ctx.stroke();
+  }
+
+  const bodyGrad = ctx.createLinearGradient(0,-s*0.5,0,s*0.4);
+  bodyGrad.addColorStop(0,'#1c1417'); bodyGrad.addColorStop(1,'#070406');
+  ctx.fillStyle = bodyGrad;
+  // A brighter rim-light than the body itself gets: a shape you read mostly
+  // by its outline against the dark, which is scarier than either a fully
+  // visible monster or one you genuinely cannot perceive at all.
+  ctx.strokeStyle = 'rgba(200,50,55,0.75)'; ctx.lineWidth = s*0.032;
+  ctx.beginPath();
+  ctx.moveTo(-s*0.15,-s*0.4);
+  ctx.quadraticCurveTo(-s*0.21,s*0.1,-s*0.13,s*0.5);
+  ctx.lineTo(s*0.13,s*0.5);
+  ctx.quadraticCurveTo(s*0.21,s*0.1,s*0.15,-s*0.4);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+
+  ctx.beginPath(); ctx.ellipse(0,-s*0.5,s*0.12,s*0.15,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+
+  const flick = 0.65+Math.sin(t*0.02+jitter)*0.35;
+  ctx.fillStyle = '#ff4433';
+  ctx.shadowColor = '#ff2a20'; ctx.shadowBlur = s*0.55*Math.max(0.35,flick);
+  ctx.beginPath(); ctx.arc(-s*0.045,-s*0.53,s*0.055,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(s*0.055,-s*0.49,s*0.062,0,Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.restore();
 }
 
 /* ---------------------------------- anim tween ---------------------------------- */
@@ -1872,6 +2324,7 @@ function updateAnim(dt){
     // even standing still, it keeps facing you. Unsettling on purpose.
     if (m.alive && S.visible.has(m.x+','+m.y)) m.facing = (S.player.x>=m.x) ? 1 : -1;
   }
+  if (S.stalker){ S.stalker.anim.attack = decay(S.stalker.anim.attack, 3); }
   const playerRender = renderPos(S.player, performance.now());
   camX = lerp(camX, playerRender.x, 1-Math.pow(0.0005,dt));
   camY = lerp(camY, playerRender.y, 1-Math.pow(0.0005,dt));
@@ -1884,10 +2337,13 @@ function updateDread(dt){
   if (S.state!=='playing' && S.state!=='levelup' && S.state!=='confirm') return;
   const ratio = S.player.maxHp>0 ? S.player.hp/S.player.maxHp : 1;
   const danger = ratio>0 && ratio<=0.3;
-  if (danger !== lastDangerState){
-    el.vignette.classList.toggle('danger', danger);
-    lastDangerState = danger;
+  const sanityLow = S.player.sanity/S.player.maxSanity <= 0.35 && S.player.hp>0;
+  const wantVignette = danger || sanityLow;
+  if (wantVignette !== lastDangerState){
+    el.vignette.classList.toggle('danger', wantVignette);
+    lastDangerState = wantVignette;
   }
+  view.classList.toggle('unsteady', sanityLow);
   if (danger){
     heartbeatTimer -= dt;
     if (heartbeatTimer<=0){ sfx.heartbeat(); heartbeatTimer = 0.5+ratio*1.4; }
@@ -1928,9 +2384,10 @@ function frame(now){
    ========================================================================= */
 const el = {};
 ['titleScreen','titleFx','btnNew','btnContinue','bestRun','bestRunDepth',
- 'gameScreen','hudDepth','btnQuit','btnMute','viewportWrap','vignette','targetBanner','stairPrompt',
+ 'gameScreen','hudDepth','btnQuit','btnMute','viewportWrap','vignette','scareFlash','targetBanner','stairPrompt',
  'hudName','hudLevel','hpText','hpFill','xpText','xpFill','statPower','statDefense','statGold',
- 'gearWeapon','gearArmor','quickbar','btnInventory','log','dpad','btnTouchInv','btnTouchStairs',
+ 'gearWeapon','gearArmor','quickbar','btnInventory','log','dpad','btnTouchInv','btnTouchStairs','btnTouchBlock','btnTouchDodge','btnTouchHeavy',
+ 'staminaFill','sanityFill','sanityWrap',
  'endScreen','endTitle','endSub','endDepth','endLevel','endTurns','endGold','btnEndMenu',
  'invModal','invTitle','invSub','invList','invClose','levelModal','levelChoices',
  'confirmModal','confirmNo','confirmYes'
@@ -1949,6 +2406,9 @@ function renderHUD(){
   const hr = clamp(p.hp/p.maxHp,0,1);
   el.hpFill.style.width = (hr*100)+'%';
   el.hpFill.className = 'bar-fill hp '+hpBarClass(hr);
+  el.staminaFill.style.width = clamp(p.stamina/p.maxStamina,0,1)*100+'%';
+  el.sanityFill.style.width = clamp(p.sanity/p.maxSanity,0,1)*100+'%';
+  el.sanityWrap.classList.toggle('low', p.sanity/p.maxSanity <= 0.35);
   const need = xpToNext(p.level);
   el.xpText.textContent = `${p.xp}/${need}`;
   el.xpFill.style.width = clamp(p.xp/need,0,1)*100+'%';
@@ -2060,12 +2520,15 @@ window.addEventListener('keydown', (ev)=>{
   }
   if (S.state==='inventory'){ return; }
   if (S.state!=='playing') return;
-  if (KEY_MOVE[ev.key]){ ev.preventDefault(); tryMove(...KEY_MOVE[ev.key]); renderHUD(); }
+  const k = ev.key.length===1 ? ev.key.toLowerCase() : ev.key;
+  if (KEY_MOVE[k]){ ev.preventDefault(); tryMove(KEY_MOVE[k][0], KEY_MOVE[k][1], ev.shiftKey); renderHUD(); }
   else if (ev.key===' '){ ev.preventDefault(); wait(); renderHUD(); }
-  else if (ev.key==='i' || ev.key==='I'){ openInventory(); }
+  else if (k==='i'){ openInventory(); }
+  else if (k==='f'){ ev.preventDefault(); playerBlock(); renderHUD(); }
+  else if (k==='v'){ ev.preventDefault(); playerDodge(); renderHUD(); }
   else if (ev.key==='.' && ev.shiftKey || ev.key==='>'){ takeStairs('down'); renderHUD(); }
   else if (ev.key===',' && ev.shiftKey || ev.key==='<'){ takeStairs('up'); renderHUD(); }
-  else if (ev.key==='g'){ pickUpAt(S.player.x,S.player.y); renderHUD(); }
+  else if (k==='g'){ pickUpAt(S.player.x,S.player.y); renderHUD(); }
 });
 
 let cursor = {x:0,y:0};
@@ -2078,14 +2541,23 @@ view.addEventListener('click', (ev)=>{
   resolveTargeting(clamp(tx,0,MAP_W-1), clamp(ty,0,MAP_H-1));
 });
 
+let heavyArmed = false;
 el.dpad.addEventListener('click', (ev)=>{
   const b = ev.target.closest('button'); if(!b) return;
   const dx = +b.dataset.dx, dy = +b.dataset.dy;
-  if (dx===0 && dy===0) { wait(); pickUpAt(S.player.x,S.player.y); } else tryMove(dx,dy);
+  if (dx===0 && dy===0) { wait(); pickUpAt(S.player.x,S.player.y); }
+  else { tryMove(dx,dy,heavyArmed); if (heavyArmed){ heavyArmed=false; el.btnTouchHeavy.textContent='Heavy: Off'; el.btnTouchHeavy.classList.remove('equipped'); } }
   renderHUD();
+});
+el.btnTouchHeavy.addEventListener('click', ()=>{
+  heavyArmed = !heavyArmed;
+  el.btnTouchHeavy.textContent = 'Heavy: '+(heavyArmed?'On':'Off');
+  el.btnTouchHeavy.classList.toggle('equipped', heavyArmed);
 });
 el.btnTouchInv.addEventListener('click', openInventory);
 el.btnTouchStairs.addEventListener('click', ()=>{ const h=onStairs(); if (h) { takeStairs(h); renderHUD(); } });
+el.btnTouchBlock.addEventListener('click', ()=>{ playerBlock(); renderHUD(); });
+el.btnTouchDodge.addEventListener('click', ()=>{ playerDodge(); renderHUD(); });
 el.btnInventory.addEventListener('click', openInventory);
 el.invClose.addEventListener('click', closeInventory);
 el.confirmNo.addEventListener('click', ()=>{ el.confirmModal.hidden=true; S.state='playing'; });
