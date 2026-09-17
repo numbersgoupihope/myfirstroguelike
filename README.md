@@ -1,13 +1,21 @@
 # Depths of Yendor
 
-A complete terminal roguelike, built from scratch in pure-stdlib Python
-(`curses` only -- no dependencies to install to play). Descend through ten
-procedurally generated dungeon levels, fight your way past a growing bestiary,
-loot gear and potions, and retrieve the Amulet of Yendor from the ancient
-dragon that guards it -- then survive the climb back to the surface with it
-in hand.
+Two editions of the same quest: descend ten procedurally generated dungeon
+levels, fight your way past a growing bestiary, loot gear and potions, and
+retrieve the Amulet of Yendor from the ancient dragon that guards it -- then
+survive the climb back to the surface with it in hand.
 
-## Features
+- **[`web/`](web/index.html) -- the visual edition.** A self-contained
+  browser game (open `web/index.html` in any browser, no build step, no
+  install): a torch-lit pixel-art dungeon with real dynamic lighting,
+  procedurally drawn (not raster) creatures, particle effects, and smooth
+  animation. This is the flagship way to play. See
+  [`web/README.md`](web/README.md) for details.
+- **[`roguelike/`](roguelike/) -- the terminal edition.** A complete
+  `curses`-based roguelike in pure-stdlib Python, no dependencies to
+  install. Documented below.
+
+## Terminal edition features
 
 - **Procedural dungeons** -- every level is a fresh layout of rooms and
   corridors, fully connected, with difficulty (monster/item tables, trap

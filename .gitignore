@@ -7,3 +7,5 @@ dist/
 .venv/
 venv/
 .yendor_save.dat
+web/node_modules/
+web/package-lock.json
