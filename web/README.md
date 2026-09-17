@@ -24,14 +24,23 @@ distant stone toward black.
 - Procedural dungeons across 10 depths, four biome palettes (crypts, fungal
   hollows, molten reach, the wyrm's throne), with monsters, items, gold and
   hidden traps scaled by depth.
-- Turn-based movement animated as smooth tweened motion, with attack lunges,
-  hit-flash, particle bursts, floating damage numbers, and screen shake.
+- Turn-based movement is eased into a real tween (start position, end
+  position, ~140ms ease-out) rather than snapping tile to tile, with attack
+  lunges, hit-flash, particle bursts, floating damage numbers, and screen
+  shake layered on top.
 - 10 monster archetypes (melee, ranged, poison) up to an ancient dragon
-  guarding the Amulet of Yendor.
+  guarding the Amulet of Yendor. Every one has faintly glowing eyes that
+  don't blink and never look away once they've spotted you, and an
+  idle motion built from slow uneasy sway plus rare involuntary twitches
+  rather than a clean bob.
+- Deliberately unsettling presentation: a small, unstable pool of torchlight
+  with occasional "gutter" flicker-outs, persistent blood decals where
+  things have died or bled, a reddening screen pulse and thumping heartbeat
+  under ~30% health, brief glimpses of eyes in the dark that aren't
+  actually anything, and a bed of dissonant WebAudio drone/noise instead of
+  clean tones -- with a mute button, because it is a lot.
 - Potions, scrolls (including tap-to-target fireball), weapons and armor,
   leveling with a choice of growth on level-up.
-- Synthesized sound effects (WebAudio, no audio files) for hits, spells,
-  pickups, and level-ups.
 - Keyboard (arrows/WASD, `I` for pack, `space` to wait, `>`/`<` for stairs)
   and an on-screen d-pad for touch devices; responsive down to phone width.
 - Save/continue via `localStorage`; permadeath clears it on death or
